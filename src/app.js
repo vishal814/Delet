@@ -1,0 +1,18 @@
+const express = require('express');
+const apiRoutes = require('./routes');
+const notFoundHandler = require('./middleware/not-found');
+const errorHandler = require('./middleware/error-handler');
+
+function createApp() {
+  const app = express();
+
+  app.use(express.json({ limit: '1mb' }));
+  app.use('/api/v1', apiRoutes);
+
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+
+  return app;
+}
+
+module.exports = createApp;
