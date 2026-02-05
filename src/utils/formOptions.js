@@ -67,38 +67,21 @@ function findOption(groupName, optionId) {
 }
 
 function normalizeSelection(groupName, selection = {}) {
-  if (!selection || (typeof selection !== 'object')) {
+  if (!selection || typeof selection !== 'object') {
     throw new Error(`Selection for ${groupName} is required.`);
   }
 
-  const { optionId, value } = selection;
-  let numericValue;
-  let label;
-
-  if (value !== undefined) {
-    const parsedValue = Number(value);
-    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
-      throw new Error(`${groupName} value must be a positive number.`);
-    }
-    numericValue = parsedValue;
+  const { optionId } = selection;
+  if (!optionId) {
+    throw new Error(`Selection for ${groupName} must include optionId.`);
   }
 
-  if (optionId) {
-    const option = findOption(groupName, optionId);
-    if (!option) {
-      throw new Error(`Invalid optionId '${optionId}' for ${groupName}.`);
-    }
-    label = option.label;
-    if (numericValue === undefined) {
-      numericValue = option.defaultValue;
-    }
+  const option = findOption(groupName, optionId);
+  if (!option) {
+    throw new Error(`Invalid optionId '${optionId}' for ${groupName}.`);
   }
 
-  if (numericValue === undefined) {
-    throw new Error(`Provide either optionId or value for ${groupName}.`);
-  }
-
-  return { value: numericValue, label: label || String(numericValue) };
+  return { value: option.defaultValue, label: option.label };
 }
 
 module.exports = {
