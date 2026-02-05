@@ -14,23 +14,52 @@ function roundCurrency(value) {
   return Math.round(value * 100) / 100;
 }
 
+function ensureCosts(record) {
+  if (!record) {
+    return record;
+  }
+  const hasRent = typeof record.monthlyRent === 'number';
+  const hasTime = typeof record.timeCost === 'number';
+  const hasVacancyLoss = typeof record.totalVacancyLoss === 'number';
+  const hasSavings = typeof record.totalSavings === 'number';
+
+  if ((record.beforeCost === undefined || record.beforeCost === null) && hasRent && hasVacancyLoss) {
+    record.beforeCost = roundCurrency(record.monthlyRent + record.totalVacancyLoss);
+  }
+  if ((record.afterCost === undefined || record.afterCost === null) && hasRent && hasVacancyLoss) {
+    const beforeCost = record.beforeCost ?? roundCurrency(record.monthlyRent + record.totalVacancyLoss);
+    if (hasSavings) {
+      record.afterCost = roundCurrency(beforeCost - record.totalSavings);
+    } else if (hasTime) {
+      const inferredSavings =
+        (record.vacancySavings ?? 0) + (record.timeSavings ?? 0);
+      record.afterCost = roundCurrency(beforeCost - inferredSavings);
+    }
+  }
+  return record;
+}
+
 function deriveMetrics(inputs) {
   const { vacancies, daysVacant, monthlyRent, showTimeHours } = inputs;
 
   const dailyRent = monthlyRent / 30;
   const vacancyLossPerProperty = dailyRent * daysVacant;
   const totalVacancyLoss = vacancies * vacancyLossPerProperty;
+  const beforeCost = monthlyRent + totalVacancyLoss;
   const timeCost =
     vacancies * showTimeHours * SHOWINGS_PER_VACANCY * HOURLY_COST;
   const vacancySavings = totalVacancyLoss * VACANCY_REDUCTION;
   const timeSavings = timeCost * TIME_REDUCTION;
   const totalSavings = vacancySavings + timeSavings;
+  const afterCost = beforeCost - totalSavings;
   const annualImpact = totalSavings * 12;
 
   return {
     dailyRent: roundCurrency(dailyRent),
     vacancyLossPerProperty: roundCurrency(vacancyLossPerProperty),
     totalVacancyLoss: roundCurrency(totalVacancyLoss),
+    beforeCost: roundCurrency(beforeCost),
+    afterCost: roundCurrency(afterCost),
     timeCost: roundCurrency(timeCost),
     vacancySavings: roundCurrency(vacancySavings),
     timeSavings: roundCurrency(timeSavings),
@@ -72,7 +101,7 @@ async function createCalculation(payload = {}) {
     notes: note ? note.slice(0, 2000) : undefined
   });
 
-  return doc.toObject({ versionKey: false });
+  return ensureCosts(doc.toObject({ versionKey: false }));
 }
 
 function ensureObjectId(id, fieldName = 'id') {
@@ -95,7 +124,7 @@ async function listCalculations({ limit = 20, cursor }) {
     .lean({ versionKey: false });
 
   const hasMore = docs.length > safeLimit;
-  const items = hasMore ? docs.slice(0, safeLimit) : docs;
+  const items = (hasMore ? docs.slice(0, safeLimit) : docs).map(ensureCosts);
   const nextCursor = hasMore ? items[items.length - 1]._id.toString() : null;
 
   return { items, nextCursor };
@@ -103,12 +132,13 @@ async function listCalculations({ limit = 20, cursor }) {
 
 async function getCalculationById(id) {
   const doc = await Calculation.findById(ensureObjectId(id)).lean({ versionKey: false });
-  return doc;
+  return ensureCosts(doc);
 }
 
 module.exports = {
   createCalculation,
   listCalculations,
   getCalculationById,
-  deriveMetrics
+  deriveMetrics,
+  ensureCosts
 };

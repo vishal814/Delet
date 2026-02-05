@@ -28,7 +28,9 @@ async function createLeadCalculation(payload = {}) {
     throw new HttpError(400, 'Provide either leadId or lead information.');
   }
 
-  const calculationRecord = await calculationService.createCalculation(calculation);
+  const calculationRecord = calculationService.ensureCosts(
+    await calculationService.createCalculation(calculation)
+  );
 
   leadDoc.calculationId = calculationRecord._id;
   await leadDoc.save();

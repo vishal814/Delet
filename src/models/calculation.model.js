@@ -14,6 +14,8 @@ const calculationSchema = new Schema(
     dailyRent: Number,
     vacancyLossPerProperty: Number,
     totalVacancyLoss: Number,
+    beforeCost: Number,
+    afterCost: Number,
     timeCost: Number,
     vacancySavings: Number,
     timeSavings: Number,
